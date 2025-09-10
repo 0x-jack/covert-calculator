@@ -36,6 +36,24 @@ This application implements sophisticated caching strategies to optimize perform
 - **Supported Tokens**: Long-term caching for the token list (rarely changes)
 - **Error Handling**: Graceful fallbacks for failed token lookups (e.g., "FAIL" token)
 
+## Potential Areas of Improvements
+
+### 🚀 **Future Enhancements**
+
+1. **Dynamic Token List Loading**:
+
+   - Implement API-based token list loading instead of static data
+   - Enable real-time updates for new tokens and delisted tokens
+
+2. **Virtualized Token Selection**:
+
+   - Add virtualization for token dropdown when dealing with large token lists (1000+ tokens)
+   - Implement search functionality with debounced input for better UX
+
+3. **API Prefetching Strategy**:
+   - Implement prefetching for frequently accessed token pairs / token list
+   - Add background refresh for popular conversion rates
+
 ## Getting Started
 
 First, run the development server:
