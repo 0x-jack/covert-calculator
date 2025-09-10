@@ -1,26 +1,17 @@
 "use client";
 
+import { NumericField } from "@/components/form/NumericField";
+import { TokenSelectField } from "@/components/form/TokenSelectField";
+import { Card } from "@/components/shared/Card";
+import { AmountDisplay } from "@/components/shared/AmountDisplay";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Form } from "@/components/ui/form";
 import { useConvertQuotes } from "@/hooks/api/useConvertQuotes";
 import { useSupportedTokens } from "@/hooks/api/useSupportedTokens";
+import { getConvertedAmount } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { debounce } from "lodash";
-import { ArrowUpDown, Loader2 } from "lucide-react";
+import { ArrowDown } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -63,32 +54,22 @@ const convertFormSchema = z.object({
 type ConvertFormData = z.infer<typeof convertFormSchema>;
 
 export const ConvertCalculator = () => {
-  const { data: tokens, isLoading } = useSupportedTokens();
+  const { data: tokens, isLoading: tokensLoading } = useSupportedTokens();
 
   const form = useForm<ConvertFormData>({
     resolver: zodResolver(convertFormSchema),
-    defaultValues: {
-      sellAmount: "0.0",
-      sellToken: {
-        symbol: "ETH",
-        name: "Ethereum",
-        chainId: "1",
-      },
-    },
+    defaultValues: {},
   });
 
-  const {
-    control,
-    setValue,
-    watch,
-    formState: { errors },
-  } = form;
+  const { setValue, watch } = form;
 
   // Watch form values for calculations
   const debouncedSellAmount = watch("debouncedSellAmount");
   const sellAmount = watch("sellAmount");
   const sellToken = watch("sellToken");
   const buyToken = watch("buyToken");
+
+  console.log("sellAmount", sellAmount, sellToken);
 
   const debouncedSetSellAmount = useMemo(
     () =>
@@ -105,137 +86,61 @@ export const ConvertCalculator = () => {
     };
   }, [sellAmount, debouncedSetSellAmount]);
 
-  // Convert tokens to currencies format for compatibility
-  const currencies: Currency[] =
-    tokens?.map((token) => ({
-      symbol: token.symbol,
-      name: token.name,
-      chainId: token.chainId,
-    })) || [];
-
-  const {
-    data: quotesData,
-    isPending: quotesLoading,
-    error,
-  } = useConvertQuotes({
+  const { buyTokenQuotes, sellTokenQuotes } = useConvertQuotes({
     sellToken,
     buyToken,
     sellAmount: debouncedSellAmount,
   });
 
-  const getUSDEquivalent = (amount: string, currency: Currency) => {
-    const value = parseFloat(amount) || 0;
-    return (value * (currency.price || 0)).toFixed(2);
-  };
+  const isSellTokenQuotesEnabled = !!debouncedSellAmount && !!sellToken;
+  const isBuyTokenQuotesEnabled = !!debouncedSellAmount && !!buyToken;
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground p-4 flex items-center justify-center">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading tokens...</span>
-        </div>
-      </div>
-    );
-  }
+  console.log("debouncedSellAmount", debouncedSellAmount);
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background text-foreground p-4 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-500 mb-2">Failed to load tokens</p>
-          <p className="text-sm text-muted-foreground">
-            {error instanceof Error ? error.message : "Unknown error occurred"}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const sellTokenQuotesError = sellTokenQuotes.error;
+  const buyTokenQuotesError = buyTokenQuotes.error;
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4">
+    <div className="h-full flex flex-col justify-center text-foreground p-4">
+      <h1 className="text-2xl font-bold text-center mb-10">
+        Convert Calculator
+      </h1>
       <Form {...form}>
         <form className="max-w-md mx-auto space-y-4">
-          <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-medium text-muted-foreground">
-                Sell
-              </span>
-            </div>
-
-            <div className="space-y-4">
-              <div className="text-center">
-                <FormField
-                  control={control}
-                  name="sellAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          className="text-3xl font-bold text-center border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                          placeholder="0.0"
-                          type="number"
-                          step="0.000001"
-                          min="0"
-                        />
-                      </FormControl>
-                      <FormMessage className="text-center" />
-                    </FormItem>
-                  )}
+          <Card title="You Pay" hasError={!!sellTokenQuotesError}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-2">
+                <NumericField name="sellAmount" label="Amount ($)" />
+                <AmountDisplay
+                  value={getConvertedAmount({
+                    unitPrice: sellTokenQuotes.data?.priceQuote.unitPrice ?? 0,
+                    decimals: sellTokenQuotes.data?.tokenInfo.decimals ?? 0,
+                    sellAmount: debouncedSellAmount ?? "0",
+                    enabled: isSellTokenQuotesEnabled,
+                  })}
+                  prefix="~"
+                  suffix={sellToken?.symbol}
+                  isPending={
+                    isSellTokenQuotesEnabled && sellTokenQuotes?.isPending
+                  }
+                  isFetching={
+                    isSellTokenQuotesEnabled && sellTokenQuotes?.isFetching
+                  }
                 />
-                {/* <p className="text-sm text-muted-foreground mt-1">
-                  $ {getUSDEquivalent(sellAmount, sellCurrencyData!)}
-                </p> */}
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <FormField
-                    control={control}
-                    name="sellToken"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Select
-                            value={field.value?.symbol}
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger className="w-auto border-none bg-transparent p-0 h-auto">
-                              <SelectValue>
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-lg">
-                                    {field.value?.logo}
-                                  </span>
-                                  <span className="font-medium">
-                                    {field.value?.symbol}
-                                  </span>
-                                </div>
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {tokens?.map((token) => (
-                                <SelectItem
-                                  key={token.symbol}
-                                  value={token.symbol}
-                                >
-                                  <div className="flex items-center space-x-2">
-                                    <span>{token.name}</span>
-                                    <span>{token.symbol}</span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
+              <TokenSelectField
+                name="sellToken"
+                label="Source Token"
+                options={tokens}
+                isLoading={tokensLoading}
+              />
             </div>
-          </div>
+            {sellTokenQuotes.error && (
+              <div className="text-sm text-red-500 mt-4">
+                {sellTokenQuotes.error.message}
+              </div>
+            )}
+          </Card>
 
           {/* Swap Button */}
           <div className="flex justify-center">
@@ -245,91 +150,39 @@ export const ConvertCalculator = () => {
               className="rounded-full h-10 w-10 p-0 border-2 border-border bg-background hover:bg-muted"
               variant="outline"
             >
-              <ArrowUpDown className="h-4 w-4" />
+              <ArrowDown className="h-4 w-4" />
             </Button>
           </div>
 
-          {/* Buy Section */}
-          <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-medium text-muted-foreground">
-                Buy
-              </span>
+          <Card title="You Receive" hasError={!!buyTokenQuotesError}>
+            <div className="flex items-center justify-between gap-4">
+              <AmountDisplay
+                value={getConvertedAmount({
+                  unitPrice: buyTokenQuotes.data?.priceQuote.unitPrice ?? 0,
+                  decimals: buyTokenQuotes.data?.tokenInfo.decimals ?? 0,
+                  sellAmount: debouncedSellAmount ?? "0",
+                  enabled: isBuyTokenQuotesEnabled,
+                })}
+                prefix="="
+                suffix={buyToken?.symbol}
+                isPending={isBuyTokenQuotesEnabled && buyTokenQuotes?.isPending}
+                isFetching={
+                  isBuyTokenQuotesEnabled && buyTokenQuotes?.isFetching
+                }
+                className="text-lg font-medium"
+              />
+              <TokenSelectField
+                name="buyToken"
+                options={tokens}
+                isLoading={tokensLoading}
+              />
             </div>
-
-            <div className="space-y-4">
-              <div className="text-center">
-                {/* <FormField
-                  control={control}
-                  name="buyToken"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          className="text-3xl font-bold text-center border-none bg-transparent p-0 h-auto focus-visible:ring-0"
-                          placeholder="0.0"
-                          type="number"
-                          step="0.000001"
-                          min="0"
-                        />
-                      </FormControl>
-                      <FormMessage className="text-center" />
-                    </FormItem>
-                  )}
-                /> */}
-                {/* <p className="text-sm text-muted-foreground mt-1">
-                  $ {getUSDEquivalent(buyAmount, buyCurrencyData!)}
-                </p> */}
+            {buyTokenQuotes.error && (
+              <div className="text-sm text-red-500 mt-4">
+                {buyTokenQuotes.error.message}
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <FormField
-                    control={control}
-                    name="buyToken"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Select
-                            value={field.value?.symbol}
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger className="w-auto border-none bg-transparent p-0 h-auto">
-                              <SelectValue>
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-lg">
-                                    {field.value?.logo}
-                                  </span>
-                                  <span className="font-medium">
-                                    {field.value?.symbol}
-                                  </span>
-                                </div>
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {tokens?.map((token) => (
-                                <SelectItem
-                                  key={token.symbol}
-                                  value={token.symbol}
-                                >
-                                  <div className="flex items-center space-x-2">
-                                    <span>{token.name}</span>
-                                    <span>{token.symbol}</span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+            )}
+          </Card>
         </form>
       </Form>
     </div>
