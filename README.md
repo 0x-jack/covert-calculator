@@ -1,3 +1,5 @@
+### [LIVE HERE](https://covert-calculator.vercel.app/)
+
 ## About the Project
 
 This is a **Cryptocurrency Token Conversion Price Calculator** - a modern web application that allows users to calculate real-time conversion rates between different cryptocurrency tokens. The application provides an intuitive interface for users to:
@@ -22,6 +24,17 @@ This is a **Cryptocurrency Token Conversion Price Calculator** - a modern web ap
 - **Data Fetching**: TanStack Query (React Query)
 - **Cryptocurrency API**: Funkit API integration
 - **Build Tool**: Turbopack for fast development and builds
+
+## API Caching Optimizations
+
+This application implements sophisticated caching strategies to optimize performance and reduce API calls:
+
+### ⏱️ **Tiered Caching Strategy**
+
+- **Token Information**: 10-minute cache for static token metadata (symbol, name, chainId)
+- **Price Data**: Real-time fetching (0 stale time) for accurate conversion rates
+- **Supported Tokens**: Long-term caching for the token list (rarely changes)
+- **Error Handling**: Graceful fallbacks for failed token lookups (e.g., "FAIL" token)
 
 ## Getting Started
 

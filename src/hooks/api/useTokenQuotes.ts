@@ -38,9 +38,7 @@ const fetchTokenQuotes = async ({ token }: { token: Token | undefined }) => {
   }
 
   if (token.symbol === "FAIL") {
-    throw new Error(
-      "Unable to fetch price for this token, please try again later"
-    );
+    throw new Error("Simulated API error for testing purposes");
   }
 
   const tokenInfo = await queryClient.fetchQuery({
