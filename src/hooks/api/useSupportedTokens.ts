@@ -28,6 +28,11 @@ const fetchSupportedTokens = async (): Promise<Token[]> => {
       name: "Wrapped Bitcoin",
       chainId: "1",
     },
+    {
+      symbol: "FAIL",
+      name: "Fail",
+      chainId: "1",
+    },
   ];
 };
 

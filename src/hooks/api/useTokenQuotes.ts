@@ -37,8 +37,10 @@ const fetchTokenQuotes = async ({ token }: { token: Token | undefined }) => {
     return null;
   }
 
-  if (token.symbol === "ETH") {
-    throw new Error("test");
+  if (token.symbol === "FAIL") {
+    throw new Error(
+      "Unable to fetch price for this token, please try again later"
+    );
   }
 
   const tokenInfo = await queryClient.fetchQuery({
